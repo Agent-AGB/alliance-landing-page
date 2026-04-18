@@ -1,3 +1,8 @@
+import subprocess
+
+def run_optimizer():
+    print("Running weekly ad optimizer...")
+    subprocess.run(["python", "optimizer.py"])
 import anthropic
 import os
 import requests
@@ -208,7 +213,7 @@ print("Schedule:")
 print("Monday, Wednesday, Friday, Saturday, Sunday - Regular posts 9am and 5pm")
 print("Tuesday and Thursday - Article posts 10am")
 print("------------------------------------------------------")
-
+schedule.every().monday.at("08:00").do(run_optimizer)
 schedule.every().monday.at("09:00").do(create_and_post)
 schedule.every().monday.at("17:00").do(create_and_post)
 schedule.every().tuesday.at("09:00").do(create_and_post)
