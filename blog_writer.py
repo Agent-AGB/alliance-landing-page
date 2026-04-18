@@ -2,6 +2,7 @@ import anthropic
 import os
 import requests
 import json
+import re
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -13,6 +14,10 @@ client = anthropic.Anthropic(
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO")
+SANITY_TOKEN = os.getenv("SANITY_TOKEN")
+SANITY_PROJECT_ID = os.getenv("SANITY_PROJECT_ID")
+SANITY_DATASET = os.getenv("SANITY_DATASET")
+SANITY_AUTHOR_ID = os.getenv("SANITY_AUTHOR_ID")
 
 SEO_TOPICS = [
     {
@@ -160,18 +165,18 @@ def write_blog_post(topic):
                     "2. Introduction paragraph that hooks the reader immediately. "
                     "3. At least 5 H2 sections covering the topic thoroughly. "
                     "4. Real specific information about Massachusetts costs, "
-                    "   permits, codes, and local market knowledge. "
+                    "permits, codes, and local market knowledge. "
                     "5. At least one mention of specific Massachusetts towns. "
                     "6. FAQ section at the end with 3 to 5 common questions. "
                     "7. Strong call to action at the end mentioning Alliance Group Builders. "
                     "8. Word count between 1000 and 1500 words. "
-                    "9. Natural keyword usage throughout - not stuffed. "
+                    "9. Natural keyword usage throughout not stuffed. "
                     "10. People first content that genuinely helps homeowners. "
                     "Write in HTML format with proper tags: "
-                    "Use h1, h2, h3, p, ul, li, strong tags. "
-                    "Do NOT include html, head, body or doctype tags. "
+                    "Use h1 h2 h3 p ul li strong tags. "
+                    "Do NOT include html head body or doctype tags. "
                     "Just the article content HTML. "
-                    "Plain text only in the content - no special characters."
+                    "Plain text only in the content no special characters."
                 )
             }
         ]
@@ -269,7 +274,6 @@ def save_to_github(filename, content, topic):
             f.write(content)
         print("Saved locally to blog/" + filename)
         return True
-
     url = "https://api.github.com/repos/" + GITHUB_REPO + "/contents/blog/" + filename
     headers = {
         "Authorization": "token " + GITHUB_TOKEN,
@@ -295,6 +299,67 @@ def save_to_github(filename, content, topic):
             f.write(content)
         return False
 
+def save_to_sanity(topic, content):
+    print("Publishing to Sanity CMS for alliance-grp.net...")
+    if not SANITY_TOKEN or not SANITY_PROJECT_ID:
+        print("No Sanity credentials - skipping!")
+        return False
+    url = "https://" + SANITY_PROJECT_ID + ".api.sanity.io/v2021-10-21/data/mutate/" + SANITY_DATASET
+    headers = {
+        "Authorization": "Bearer " + SANITY_TOKEN,
+        "Content-Type": "application/json"
+    }
+    blocks = []
+    paragraphs = content.replace("<h2>", "\n<h2>").replace("<p>", "\n<p>").split("\n")
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+        clean = re.sub("<[^>]+>", "", para).strip()
+        if not clean:
+            continue
+        if "<h2>" in para or "<h3>" in para:
+            style = "h2"
+        else:
+            style = "normal"
+        blocks.append({
+            "_type": "block",
+            "_key": os.urandom(8).hex(),
+            "style": style,
+            "children": [{
+                "_type": "span",
+                "_key": os.urandom(8).hex(),
+                "text": clean
+            }]
+        })
+    payload = {
+        "mutations": [{
+            "create": {
+                "_type": "post",
+                "title": topic["title"],
+                "slug": {
+                    "_type": "slug",
+                    "current": topic["slug"]
+                },
+                "author": {
+                    "_type": "reference",
+                    "_ref": SANITY_AUTHOR_ID
+                },
+                "publishedAt": datetime.now().isoformat(),
+                "body": blocks
+            }
+        }]
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    result = response.json()
+    if "transactionId" in result:
+        print("Published to Sanity successfully!")
+        print("Post will appear on alliance-grp.net!")
+        return True
+    else:
+        print("Sanity error: " + str(result))
+        return False
+
 def run_blog_writer():
     print("=" * 50)
     print("AGB SEO BLOG WRITER")
@@ -308,13 +373,18 @@ def run_blog_writer():
     content = write_blog_post(topic)
     html = create_html_page(topic, content)
     filename = topic["slug"] + ".html"
-    success = save_to_github(filename, html, topic)
-    if success:
+    github_success = save_to_github(filename, html, topic)
+    sanity_success = save_to_sanity(topic, content)
+    if github_success or sanity_success:
         mark_published(topic["slug"])
         print("\nBlog post complete!")
         print("File: blog/" + filename)
         print("Title: " + topic["title"])
         print("Keyword: " + topic["keyword"])
+        if github_success:
+            print("Live at: https://alliance-landing-page.vercel.app/blog/" + filename)
+        if sanity_success:
+            print("Also live at: alliance-grp.net")
     print("=" * 50)
 
 if __name__ == "__main__":
