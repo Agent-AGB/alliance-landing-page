@@ -1,8 +1,4 @@
 import subprocess
-
-def run_optimizer():
-    print("Running weekly ad optimizer...")
-    subprocess.run(["python", "optimizer.py"])
 import anthropic
 import os
 import requests
@@ -78,7 +74,7 @@ ARTICLE_TOPICS = [
 ]
 
 def post_to_facebook(text):
-    url = f"https://graph.facebook.com/v18.0/{PAGE_ID}/feed"
+    url = "https://graph.facebook.com/v18.0/" + PAGE_ID + "/feed"
     payload = {
         "message": text,
         "access_token": PAGE_TOKEN
@@ -205,14 +201,33 @@ def create_article_post():
     except Exception as e:
         print("Error: " + str(e))
 
+def run_optimizer():
+    print("\nRunning weekly ad optimizer...")
+    subprocess.run(["python", "optimizer.py"])
+
+def run_weekly_report():
+    print("\nRunning weekly email report...")
+    subprocess.run(["python", "weekly_report.py"])
+
 print("AGB Auto Scheduler is running!")
 print("Claude will post to Facebook automatically!")
 print("Including article posts every Tuesday and Thursday!")
 print("------------------------------------------------------")
 print("Schedule:")
-print("Monday, Wednesday, Friday, Saturday, Sunday - Regular posts 9am and 5pm")
-print("Tuesday and Thursday - Article posts 10am")
+print("Monday 7am EST - Weekly email report")
+print("Monday 8am EST - Ad optimizer runs")
+print("Monday 9am and 5pm EST - Regular posts")
+print("Tuesday 9am and 5pm EST - Regular posts")
+print("Tuesday 10am EST - Article post")
+print("Wednesday 9am and 5pm EST - Regular posts")
+print("Thursday 9am and 5pm EST - Regular posts")
+print("Thursday 10am EST - Article post")
+print("Friday 9am and 5pm EST - Regular posts")
+print("Saturday 9am EST - Regular post")
+print("Sunday 6pm EST - Regular post")
 print("------------------------------------------------------")
+
+schedule.every().monday.at("11:00").do(run_weekly_report)
 schedule.every().monday.at("12:00").do(run_optimizer)
 schedule.every().monday.at("13:00").do(create_and_post)
 schedule.every().monday.at("21:00").do(create_and_post)
@@ -229,7 +244,7 @@ schedule.every().friday.at("21:00").do(create_and_post)
 schedule.every().saturday.at("13:00").do(create_and_post)
 schedule.every().sunday.at("22:00").do(create_and_post)
 
-create_article_post()
+create_and_post()
 
 while True:
     schedule.run_pending()
