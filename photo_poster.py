@@ -2,6 +2,7 @@ import anthropic
 import os
 import requests
 import io
+import json
 from datetime import datetime
 from dotenv import load_dotenv
 from google.oauth2.credentials import Credentials
@@ -27,18 +28,29 @@ ARCHIVE_FOLDER_ID = "1Q8bBrEbkp6jC0q8yQy4_VBKkT2YT2r5r"
 def get_google_drive_service():
     print("Connecting to Google Drive...")
     creds = None
+    google_token_json = os.getenv("GOOGLE_TOKEN_JSON")
+    if google_token_json:
+        print("Loading token from environment variable...")
+        token_data = json.loads(google_token_json)
+        with open("google_token.json", "w") as f:
+            json.dump(token_data, f)
     if os.path.exists("google_token.json"):
         creds = Credentials.from_authorized_user_file("google_token.json", SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
+            print("Refreshing expired token...")
             creds.refresh(Request())
+            with open("google_token.json", "w") as token:
+                token.write(creds.to_json())
+            print("Token refreshed!")
         else:
+            print("No valid token found - running local auth flow...")
             flow = InstalledAppFlow.from_client_secrets_file(
                 "google_credentials.json", SCOPES
             )
             creds = flow.run_local_server(port=0)
-        with open("google_token.json", "w") as token:
-            token.write(creds.to_json())
+            with open("google_token.json", "w") as token:
+                token.write(creds.to_json())
     service = build("drive", "v3", credentials=creds)
     print("Connected to Google Drive!")
     return service
@@ -149,25 +161,28 @@ def run_photo_poster():
     print("=" * 50)
     print("Checking Google Drive for new photos...")
     print()
-    service = get_google_drive_service()
-    photos = get_photos_from_folder(service, READY_FOLDER_ID)
-    if not photos:
-        print("No photos found in Photos - Ready to Post folder!")
-        print("Upload photos to Google Drive to get started!")
-        return
-    print("Found " + str(len(photos)) + " photos to post!")
-    print()
-    photo = photos[0]
-    file_name = photo["name"]
-    file_id = photo["id"]
-    photo_buffer = download_photo(service, file_id, file_name)
-    caption = write_caption(file_name)
-    print("Caption: " + caption)
-    print()
-    success = post_photo_to_facebook(photo_buffer, caption, file_name)
-    if success:
-        move_to_archive(service, file_id, file_name)
-        print("\nPhoto posted and archived successfully!")
+    try:
+        service = get_google_drive_service()
+        photos = get_photos_from_folder(service, READY_FOLDER_ID)
+        if not photos:
+            print("No photos found in Photos - Ready to Post folder!")
+            print("Upload photos to Google Drive to get started!")
+            return
+        print("Found " + str(len(photos)) + " photos to post!")
+        print()
+        photo = photos[0]
+        file_name = photo["name"]
+        file_id = photo["id"]
+        photo_buffer = download_photo(service, file_id, file_name)
+        caption = write_caption(file_name)
+        print("Caption: " + caption)
+        print()
+        success = post_photo_to_facebook(photo_buffer, caption, file_name)
+        if success:
+            move_to_archive(service, file_id, file_name)
+            print("\nPhoto posted and archived successfully!")
+    except Exception as e:
+        print("Error in photo poster: " + str(e))
     print("=" * 50)
 
 if __name__ == "__main__":
