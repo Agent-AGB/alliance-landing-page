@@ -172,14 +172,11 @@ def create_article_post():
                 }
             ]
         )
-
         response_text = ""
         article_link = ""
-
         for block in message.content:
             if hasattr(block, "text"):
                 response_text = block.text
-
         if "POST TEXT:" in response_text:
             post_part = response_text.split("POST TEXT:")[1]
             if "ARTICLE LINK:" in post_part:
@@ -189,15 +186,12 @@ def create_article_post():
                 post_text = post_part.strip()
         else:
             post_text = response_text.strip()
-
         if article_link:
             full_post = post_text + "\n\nRead more: " + article_link
         else:
             full_post = post_text
-
         print("Article post created!")
         post_to_facebook(full_post)
-
     except Exception as e:
         print("Error: " + str(e))
 
@@ -213,10 +207,12 @@ def run_blog_writer():
     print("\nRunning weekly SEO blog writer...")
     subprocess.run(["python", "blog_writer.py"])
 
+def run_photo_poster():
+    print("\nRunning photo poster...")
+    subprocess.run(["python", "photo_poster.py"])
+
 print("AGB Auto Scheduler is running!")
 print("Claude will post to Facebook automatically!")
-print("Including article posts every Tuesday and Thursday!")
-print("Including SEO blog post every Wednesday!")
 print("------------------------------------------------------")
 print("Schedule:")
 print("Monday 7am EST - Weekly email report")
@@ -225,12 +221,13 @@ print("Monday 9am and 5pm EST - Regular posts")
 print("Tuesday 9am and 5pm EST - Regular posts")
 print("Tuesday 10am EST - Article post")
 print("Wednesday 9am and 5pm EST - Regular posts")
-print("Wednesday 10am EST - SEO blog post published!")
+print("Wednesday 10am EST - SEO blog post")
 print("Thursday 9am and 5pm EST - Regular posts")
 print("Thursday 10am EST - Article post")
 print("Friday 9am and 5pm EST - Regular posts")
 print("Saturday 9am EST - Regular post")
 print("Sunday 6pm EST - Regular post")
+print("Daily 11am EST - Photo poster checks Google Drive")
 print("------------------------------------------------------")
 
 schedule.every().monday.at("11:00").do(run_weekly_report)
@@ -250,6 +247,7 @@ schedule.every().friday.at("13:00").do(create_and_post)
 schedule.every().friday.at("21:00").do(create_and_post)
 schedule.every().saturday.at("13:00").do(create_and_post)
 schedule.every().sunday.at("22:00").do(create_and_post)
+schedule.every().day.at("15:00").do(run_photo_poster)
 
 create_and_post()
 
