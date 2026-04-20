@@ -211,12 +211,16 @@ def run_photo_poster():
     print("\nRunning photo poster...")
     subprocess.run(["python", "photo_poster.py"])
 
+def run_service_page_writer():
+    print("\nRunning service page writer...")
+    subprocess.run(["python", "service_page_writer.py"])
+
 print("AGB Auto Scheduler is running!")
 print("Claude will post to Facebook automatically!")
 print("------------------------------------------------------")
 print("Schedule:")
 print("Monday 7am EST - Weekly email report")
-print("Monday 8am EST - Ad optimizer runs")
+print("Monday 8am EST - Ad optimizer")
 print("Monday 9am and 5pm EST - Regular posts")
 print("Tuesday 9am and 5pm EST - Regular posts")
 print("Tuesday 10am EST - Article post")
@@ -227,7 +231,8 @@ print("Thursday 10am EST - Article post")
 print("Friday 9am and 5pm EST - Regular posts")
 print("Saturday 9am EST - Regular post")
 print("Sunday 6pm EST - Regular post")
-print("Daily 11am EST - Photo poster checks Google Drive")
+print("Daily 11am EST - Photo poster")
+print("Daily 12pm EST - Service page published")
 print("------------------------------------------------------")
 
 schedule.every().monday.at("11:00").do(run_weekly_report)
@@ -248,6 +253,7 @@ schedule.every().friday.at("21:00").do(create_and_post)
 schedule.every().saturday.at("13:00").do(create_and_post)
 schedule.every().sunday.at("22:00").do(create_and_post)
 schedule.every().day.at("15:00").do(run_photo_poster)
+schedule.every().day.at("16:00").do(run_service_page_writer)
 
 create_and_post()
 
