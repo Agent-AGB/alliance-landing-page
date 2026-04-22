@@ -3,6 +3,7 @@ import os
 import requests
 import json
 import re
+import base64
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -132,7 +133,8 @@ def mark_published(slug):
             published = json.load(f)
     else:
         published = []
-    published.append(slug)
+    if slug not in published:
+        published.append(slug)
     with open(log_file, "w") as f:
         json.dump(published, f)
 
@@ -164,15 +166,15 @@ def write_blog_post(topic):
                     "1. SEO optimized H1 title using the target keyword naturally. "
                     "2. Introduction paragraph that hooks the reader immediately. "
                     "3. At least 5 H2 sections covering the topic thoroughly. "
-                    "4. Real specific information about Massachusetts costs, "
-                    "permits, codes, and local market knowledge. "
+                    "4. Real specific information about Massachusetts costs "
+                    "permits codes and local market knowledge. "
                     "5. At least one mention of specific Massachusetts towns. "
                     "6. FAQ section at the end with 3 to 5 common questions. "
                     "7. Strong call to action at the end mentioning Alliance Group Builders. "
                     "8. Word count between 1000 and 1500 words. "
                     "9. Natural keyword usage throughout not stuffed. "
                     "10. People first content that genuinely helps homeowners. "
-                    "Write in HTML format with proper tags: "
+                    "Write in HTML format with proper tags. "
                     "Use h1 h2 h3 p ul li strong tags. "
                     "Do NOT include html head body or doctype tags. "
                     "Just the article content HTML. "
@@ -266,6 +268,18 @@ footer { background:#0a0a0a; padding:32px 40px; text-align:center; color:rgba(25
 </html>"""
     return html
 
+def get_file_sha(filename):
+    url = "https://api.github.com/repos/" + GITHUB_REPO + "/contents/blog/" + filename
+    headers = {
+        "Authorization": "token " + GITHUB_TOKEN,
+        "Content-Type": "application/json"
+    }
+    response = requests.get(url, headers=headers)
+    result = response.json()
+    if "sha" in result:
+        return result["sha"]
+    return None
+
 def save_to_github(filename, content, topic):
     if not GITHUB_TOKEN or not GITHUB_REPO:
         print("No GitHub token found - saving locally only!")
@@ -279,21 +293,26 @@ def save_to_github(filename, content, topic):
         "Authorization": "token " + GITHUB_TOKEN,
         "Content-Type": "application/json"
     }
-    import base64
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
     payload = {
         "message": "Add blog post: " + topic["title"],
         "content": encoded
     }
+    sha = get_file_sha(filename)
+    if sha:
+        print("File exists - updating...")
+        payload["sha"] = sha
     response = requests.put(url, headers=headers, json=payload)
     result = response.json()
     if "content" in result:
         print("Published to GitHub successfully!")
         print("URL: " + result["content"]["html_url"])
+        os.makedirs("blog", exist_ok=True)
+        with open("blog/" + filename, "w", encoding="utf-8") as f:
+            f.write(content)
         return True
     else:
         print("GitHub error: " + str(result))
-        print("Saving locally instead!")
         os.makedirs("blog", exist_ok=True)
         with open("blog/" + filename, "w", encoding="utf-8") as f:
             f.write(content)
@@ -334,8 +353,9 @@ def save_to_sanity(topic, content):
         })
     payload = {
         "mutations": [{
-            "create": {
+            "createOrReplace": {
                 "_type": "post",
+                "_id": "blog-" + topic["slug"],
                 "title": topic["title"],
                 "slug": {
                     "_type": "slug",
@@ -384,7 +404,7 @@ def run_blog_writer():
         if github_success:
             print("Live at: https://alliance-landing-page.vercel.app/blog/" + filename)
         if sanity_success:
-            print("Also live at: alliance-grp.net")
+            print("Also live at: alliance-grp.net!")
     print("=" * 50)
 
 if __name__ == "__main__":
